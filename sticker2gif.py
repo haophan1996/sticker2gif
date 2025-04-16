@@ -57,13 +57,8 @@ class Maker:
                 
                 # Detecting empty mini images and bypassing them
                 if not (sum(colors[0][1]) == 0 and len(colors) == 1):
-                    # minSticker.mode = RGBA so that we create a white background
-                    # of same mode to avoid black background when converting to gif
-                    Image.alpha_composite(
-                        Image.new(
-                            'RGBA', (x, y), (255, 255, 255)), minSticker
-                            ).save(f'temp\\{n}.png'
-                            )
+                    transparent_bg = Image.new('RGBA', (x, y), (0, 0, 0, 0))
+                    Image.alpha_composite(transparent_bg, minSticker).save(f'temp/{n}.png')
                     n += 1
                 
                 # Cordinates of the next image in same row
@@ -71,6 +66,26 @@ class Maker:
             
             # Cordinates of the first image in the next row
             cd = (0, cd[1] + y, x, cd[3] + y)
+
+    def rgba_to_gif_clean(self, frame): 
+        rgba = frame.convert("RGBA")
+ 
+        transparent_bg = Image.new("RGBA", rgba.size, (0, 0, 0, 0))
+        clean = Image.alpha_composite(transparent_bg, rgba)
+ 
+        data = clean.getdata()
+        new_data = [
+            (0, 0, 0, 0) if px[3] < 10 else px  # Set near-transparent pixels to black
+            for px in data
+        ]
+        clean.putdata(new_data)
+ 
+        gif_frame = clean.convert("P", palette=Image.ADAPTIVE, dither=Image.NONE)
+ 
+        transparent_index = gif_frame.getpixel((0, 0))
+        gif_frame.info["transparency"] = transparent_index
+
+        return gif_frame
 
     def gifImg(self, name, duration):
         pics = [i for i in os.listdir('temp') if i.split('.')[0].isdecimal()]
@@ -96,11 +111,26 @@ class Maker:
         
         # Create GIF
         Log('\nCreating Gif...', self.log)
-        frames[0].save(name + '.gif',
-                    save_all = True,
-                    append_images = frames[1:],
-                    duration = duri,
-                    loop = 0)
+        target_size = (140, 140)
+        resized_frames = [self.rgba_to_gif_clean(f.resize(target_size, Image.Resampling.LANCZOS)) for f in frames]
+        resized_frames[0].save(
+            name + '-2.gif',
+            save_all=True,
+            append_images=resized_frames[1:],
+            duration=duri,
+            loop=0,
+            disposal=2,
+            transparency=0
+        )
+        frames[0].save(
+            name + '.gif',
+            save_all=True,
+            append_images=frames[1:],
+            duration=duri,
+            loop=0,
+            transparency=0,      # Index of the transparent color (usually 0)
+            disposal=2           # Ensures each frame clears before the next
+        )
 
     def run(self):
         self.cutImg()

@@ -6,6 +6,7 @@ A tool to download Facebook Messenger Stickers and convert them into gif using b
 ## Dependencies
 
 `pip install Pillow`
+`pip install requests`
 
 ## Usage
 
